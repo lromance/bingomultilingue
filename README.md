@@ -3,3 +3,4 @@ Se escoge un idioma. Luego si hay que usar cifras o letras. Y tambien un interva
 A continuación se pueden hacer tiradas que van saliendo en pantalla. 
 Cuando se desee, se puede mostrar los números que ya han salido.
 Se puede reiniciar la partida (con los mismos parámetros) o volver a configurar los parámetros.
+Para usar el bingo <a href="https://lromance.github.io/bingomultilingue/bingo-multidioma-personalitzat.html">https://lromance.github.io/bingomultilingue/bingo-multidioma-personalitzat.html</a>
