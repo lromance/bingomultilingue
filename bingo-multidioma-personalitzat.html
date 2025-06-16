@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bingo para clase de lengua</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- React and ReactDOM CDNs -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for JSX transformation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .numbers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+      gap: 4px;
+      max-width: 600px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Helper for number to word conversion, structured for robustness 0-99
+    const units = {
+      ca: ["zero", "un", "dos", "tres", "quatre", "cinc", "sis", "set", "vuit", "nou"],
+      es: ["cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"],
+      en: ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+    };
+
+    const teens = { // 10-19
+      ca: ["deu", "onze", "dotze", "tretze", "catorze", "quinze", "setze", "disset", "divuit", "dinou"],
+      es: ["diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete", "dieciocho", "diecinueve"],
+      en: ["ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
+    };
+
+    const tens = { // 20, 30, ..., 90
+      ca: ["", "", "vint", "trenta", "quaranta", "cinquanta", "seixanta", "setanta", "vuitanta", "noranta"],
+      es: ["", "", "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa"],
+      en: ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+    };
+
+    // Specific handling for Spanish "veintiuno" etc.
+    const esTwentySomething = {
+      20: "veinte", 21: "veintiuno", 22: "veintidós", 23: "veintitrés", 24: "veinticuatro", 25: "veinticinco",
+      26: "veintiséis", 27: "veintisiete", 28: "veintiocho", 29: "veintinueve"
+    };
+
+    // Specific handling for Catalan "vint-i-u" etc.
+    const caTwentySomething = {
+      20: "vint", 21: "vint-i-u", 22: "vint-i-dos", 23: "vint-i-tres", 24: "vint-i-quatre", 25: "vint-i-cinc",
+      26: "vint-i-sis", 27: "vint-i-set", 28: "vint-i-vuit", 29: "vint-i-nou"
+    };
+
+    const getNumberInWords = (num, lang) => {
+      console.log('Converting number to words:', num, 'in language:', lang); // Debug log
+      
+      if (num < 0 || num > 99) return String(num);
+
+      if (num === 0) return units[lang][0];
+
+      if (num >= 1 && num <= 9) {
+        return units[lang][num];
+      } else if (num >= 10 && num <= 19) {
+        return teens[lang][num - 10];
+      } else if (lang === 'es' && num >= 20 && num <= 29) {
+        return esTwentySomething[num];
+      } else if (lang === 'ca' && num >= 20 && num <= 29) {
+        return caTwentySomething[num];
+      } else if (num >= 20 && num <= 99) {
+        const tensDigit = Math.floor(num / 10);
+        const unitsDigit = num % 10;
+        let word = tens[lang][tensDigit];
+        if (unitsDigit > 0) {
+          if (lang === 'ca') {
+            word += '-' + units[lang][unitsDigit];
+          } else if (lang === 'es') {
+            word += ' y ' + units[lang][unitsDigit];
+            if (unitsDigit === 1 && tensDigit > 2) {
+              word = tens[lang][tensDigit] + ' y uno';
+            }
+          } else { // en
+            word += '-' + units[lang][unitsDigit];
+          }
+        }
+        return word;
+      }
+      return String(num);
+    };
+
+    const translations = {
+      ca: {
+        appTitle: "Bingo per a classe de llengua",
+        selectLanguage: "Selecciona l'Idioma:",
+        catalan: "Català",
+        spanish: "Castellà",
+        english: "Anglès",
+        selectFormat: "Format del Número:",
+        numbers: "Cifres",
+        letters: "Lletres",
+        minNumber: "Número Mínim:",
+        maxNumber: "Número Màxim:",
+        startGame: "Començar Partida",
+        resetParameters: "Reiniciar Paràmetres",
+        drawNumber: "Treure Número",
+        resetGame: "Reiniciar Joc",
+        currentNumber: "Número Actual:",
+        drawnNumbersBoard: "Números Sortits:",
+        invalidRange: "El número mínim ha de ser inferior o igual al número màxim i ambdós han d'estar entre 0 i 99.",
+        gameEnded: "La partida ha acabat! Tots els números han sortit.",
+        showBoard: "Mostrar Números Sortits",
+        hideBoard: "Amagar Números Sortits"
+      },
+      es: {
+        appTitle: "Bingo para clase de lengua",
+        selectLanguage: "Selecciona el Idioma:",
+        catalan: "Catalán",
+        spanish: "Castellano",
+        english: "Inglés",
+        selectFormat: "Formato del Número:",
+        numbers: "Cifras",
+        letters: "Letras",
+        minNumber: "Número Mínimo:",
+        maxNumber: "Número Máximo:",
+        startGame: "Comenzar Partida",
+        resetParameters: "Reiniciar Parámetros",
+        drawNumber: "Sacar Número",
+        resetGame: "Reiniciar Juego",
+        currentNumber: "Número Actual:",
+        drawnNumbersBoard: "Números Salidos:",
+        invalidRange: "El número mínimo debe ser inferior o igual al número máximo y ambos deben estar entre 0 y 99.",
+        gameEnded: "¡La partida ha terminado! Todos los números han salido.",
+        showBoard: "Mostrar Números Salidos",
+        hideBoard: "Ocultar Números Salidos"
+      },
+      en: {
+        appTitle: "Bingo for Language Class",
+        selectLanguage: "Select Language:",
+        catalan: "Catalan",
+        spanish: "Spanish",
+        english: "English",
+        selectFormat: "Number Format:",
+        numbers: "Digits",
+        letters: "Letters",
+        minNumber: "Minimum Number:",
+        maxNumber: "Maximum Number:",
+        startGame: "Start Game",
+        resetParameters: "Reset Parameters",
+        drawNumber: "Draw Number",
+        resetGame: "Reset Game",
+        currentNumber: "Current Number:",
+        drawnNumbersBoard: "Drawn Numbers Board:",
+        invalidRange: "The minimum number must be less than or equal to the maximum number and both must be between 0 and 99.",
+        gameEnded: "The game has ended! All numbers have been drawn.",
+        showBoard: "Show Drawn Numbers",
+        hideBoard: "Hide Drawn Numbers"
+      }
+    };
+
+    const App = () => {
+      const [language, setLanguage] = useState('ca');
+      const [format, setFormat] = useState('numbers');
+      const [minNum, setMinNum] = useState(0);
+      const [maxNum, setMaxNum] = useState(99);
+      const [drawnNumbers, setDrawnNumbers] = useState(new Set());
+      const [currentDrawnNumber, setCurrentDrawnNumber] = useState(null);
+      const [gameStarted, setGameStarted] = useState(false);
+      const [availableNumbers, setAvailableNumbers] = useState([]);
+      const [showModal, setShowModal] = useState(false);
+      const [modalMessage, setModalMessage] = useState('');
+      const [showDrawnNumbersBoard, setShowDrawnNumbersBoard] = useState(false);
+
+      // Get current translations
+      const t = translations[language];
+
+      useEffect(() => {
+        if (gameStarted) {
+          const min = parseInt(minNum, 10);
+          const max = parseInt(maxNum, 10);
+          const allNumbers = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+          setAvailableNumbers(allNumbers.filter(num => !drawnNumbers.has(num)));
+        }
+      }, [gameStarted, minNum, maxNum, drawnNumbers]);
+
+      const showCustomModal = (message) => {
+        setModalMessage(message);
+        setShowModal(true);
+      };
+
+      const startGame = () => {
+        const min = parseInt(minNum, 10);
+        const max = parseInt(maxNum, 10);
+
+        if (isNaN(min) || isNaN(max) || min < 0 || max > 99 || min > max) {
+          showCustomModal(t.invalidRange);
+          return;
+        }
+
+        console.log('Starting game with range:', min, 'to', max); // Debug log
+        
+        setDrawnNumbers(new Set());
+        setCurrentDrawnNumber(null);
+        setGameStarted(true);
+        const initialAvailableNumbers = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+        console.log('Available numbers:', initialAvailableNumbers); // Debug log
+        setAvailableNumbers(initialAvailableNumbers);
+        setShowDrawnNumbersBoard(false);
+      };
+
+      const drawNumber = () => {
+        if (availableNumbers.length === 0) {
+          showCustomModal(t.gameEnded);
+          return;
+        }
+
+        const randomIndex = Math.floor(Math.random() * availableNumbers.length);
+        const number = availableNumbers[randomIndex];
+
+        console.log('Drawing number:', number); // Debug log
+        
+        setCurrentDrawnNumber(number);
+        setDrawnNumbers(prev => new Set(prev).add(number));
+        setAvailableNumbers(prev => prev.filter(n => n !== number));
+        setShowDrawnNumbersBoard(false);
+      };
+
+      const resetCurrentGame = () => {
+        setDrawnNumbers(new Set());
+        setCurrentDrawnNumber(null);
+        setGameStarted(false);
+        setShowDrawnNumbersBoard(false);
+      };
+
+      const resetAllParameters = () => {
+        setLanguage('ca');
+        setFormat('numbers');
+        setMinNum(0);
+        setMaxNum(99);
+        setDrawnNumbers(new Set());
+        setCurrentDrawnNumber(null);
+        setGameStarted(false);
+        setAvailableNumbers([]);
+        setShowDrawnNumbersBoard(false);
+      };
+
+      const renderDrawnNumbersGrid = () => {
+        const min = parseInt(minNum, 10);
+        const max = parseInt(maxNum, 10);
+        const numbersToDisplay = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+
+        return (
+          <div className="p-4 rounded-lg shadow-inner bg-gray-100 dark:bg-gray-700 max-w-4xl mx-auto w-full">
+            <div className="numbers-grid">
+              {numbersToDisplay.map(num => (
+                <div
+                  key={num}
+                  className={`flex items-center justify-center p-2 rounded-md font-semibold min-h-[40px]
+                    ${drawnNumbers.has(num) ? 'bg-indigo-600 text-white dark:bg-indigo-500' : 'bg-gray-300 text-gray-800 dark:bg-gray-600 dark:text-gray-200'}
+                    transition-colors duration-200 ease-in-out text-sm`}
+                >
+                  {num}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      };
+
+      // Display logic for current number
+      const displayCurrentNumber = () => {
+        if (currentDrawnNumber === null) {
+          return <span className="text-gray-200 dark:text-gray-400">?</span>;
+        }
+        
+        console.log('Displaying current number:', currentDrawnNumber, 'format:', format, 'language:', language); // Debug log
+        
+        if (format === 'numbers') {
+          return currentDrawnNumber;
+        } else {
+          return getNumberInWords(currentDrawnNumber, language);
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-100 to-indigo-200 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-inter p-4 flex flex-col items-center justify-center">
+          <header className="mb-8 text-center">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-indigo-700 dark:text-indigo-400 drop-shadow-lg rounded-lg p-2">
+              {t.appTitle}
+            </h1>
+          </header>
+
+          {/* Custom Modal for messages */}
+          {showModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-sm w-full text-center">
+                <p className="text-lg mb-6">{modalMessage}</p>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-transform transform hover:scale-105 duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75 shadow-md"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!gameStarted ? (
+            // Game Setup Section
+            <section className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl shadow-2xl space-y-6 w-full max-w-xl border-t-4 border-indigo-500">
+              <h2 className="text-2xl font-bold text-center mb-4">{t.startGame}</h2>
+
+              {/* Language Selection */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 text-lg font-medium mb-2">{t.selectLanguage}</label>
+                <div className="flex flex-wrap gap-4 justify-center">
+                  {['ca', 'es', 'en'].map(lang => (
+                    <label key={lang} className="inline-flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="language"
+                        value={lang}
+                        checked={language === lang}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 rounded-full"
+                      />
+                      <span className="ml-2 text-gray-800 dark:text-gray-200 text-base md:text-lg">
+                        {translations[lang][lang === 'ca' ? 'catalan' : (lang === 'es' ? 'spanish' : 'english')]}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Format Selection */}
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 text-lg font-medium mb-2">{t.selectFormat}</label>
+                <div className="flex flex-wrap gap-4 justify-center">
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="format"
+                      value="numbers"
+                      checked={format === 'numbers'}
+                      onChange={(e) => setFormat(e.target.value)}
+                      className="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 rounded-full"
+                    />
+                    <span className="ml-2 text-gray-800 dark:text-gray-200 text-base md:text-lg">{t.numbers}</span>
+                  </label>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="format"
+                      value="letters"
+                      checked={format === 'letters'}
+                      onChange={(e) => setFormat(e.target.value)}
+                      className="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 rounded-full"
+                    />
+                    <span className="ml-2 text-gray-800 dark:text-gray-200 text-base md:text-lg">{t.letters}</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Min/Max Number Input */}
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <label htmlFor="minNum" className="block text-gray-700 dark:text-gray-300 text-lg font-medium mb-2">
+                    {t.minNumber}
+                  </label>
+                  <input
+                    type="number"
+                    id="minNum"
+                    value={minNum}
+                    onChange={(e) => setMinNum(e.target.value)}
+                    min="0"
+                    max="99"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="maxNum" className="block text-gray-700 dark:text-gray-300 text-lg font-medium mb-2">
+                    {t.maxNumber}
+                  </label>
+                  <input
+                    type="number"
+                    id="maxNum"
+                    value={maxNum}
+                    onChange={(e) => setMaxNum(e.target.value)}
+                    min="0"
+                    max="99"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              </div>
+
+              {/* Start Game Button */}
+              <button
+                onClick={startGame}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75 shadow-lg mt-6"
+              >
+                {t.startGame}
+              </button>
+            </section>
+          ) : (
+            // Game Play Section
+            <section className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl shadow-2xl space-y-6 w-full max-w-4xl border-t-4 border-green-500">
+              <h2 className="text-2xl font-bold text-center mb-4">{t.appTitle}</h2>
+
+              {/* Debug Info */}
+              <div className="text-center text-sm text-gray-500 mb-4">
+                Debug: Min={minNum}, Max={maxNum}, Current={currentDrawnNumber}, Format={format}, Lang={language}
+              </div>
+
+              {/* Current Drawn Number Display */}
+              <div className="text-center mb-6">
+                <p className="text-lg text-gray-700 dark:text-gray-300 font-medium mb-2">{t.currentNumber}</p>
+                <div className="bg-indigo-500 text-white dark:bg-indigo-600 text-5xl md:text-7xl font-extrabold rounded-xl py-6 px-10 inline-block shadow-lg">
+                  {displayCurrentNumber()}
+                </div>
+              </div>
+
+              {/* Game Controls */}
+              <div className="flex flex-col md:flex-row justify-center gap-4 mb-8">
+                <button
+                  onClick={drawNumber}
+                  disabled={availableNumbers.length === 0}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75 shadow-md flex-1 md:flex-none disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {t.drawNumber}
+                </button>
+                <button
+                  onClick={() => setShowDrawnNumbersBoard(prev => !prev)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 shadow-md flex-1 md:flex-none"
+                >
+                  {showDrawnNumbersBoard ? t.hideBoard : t.showBoard}
+                </button>
+                <button
+                  onClick={resetCurrentGame}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-75 shadow-md flex-1 md:flex-none"
+                >
+                  {t.resetGame}
+                </button>
+                <button
+                  onClick={resetAllParameters}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-75 shadow-md flex-1 md:flex-none"
+                >
+                  {t.resetParameters}
+                </button>
+              </div>
+
+              {/* Drawn Numbers Board - Conditionally rendered */}
+              {showDrawnNumbersBoard && (
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-4">{t.drawnNumbersBoard}</h3>
+                  {renderDrawnNumbersGrid()}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Footer Section */}
+          <footer className="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm">
+            <p>&copy; Copyright Luis Romance</p>
+            <p><a href="https://www.cfalapau.cat" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200">www.cfalapau.cat</a></p>
+          </footer>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
